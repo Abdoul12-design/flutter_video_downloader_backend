@@ -1,4 +1,4 @@
-from fastapi import FastAPI, WebSocket
+from fastapi import FastAPI, WebSocket, HTTPException
 from pydantic import BaseModel
 import downloader
 
@@ -15,9 +15,13 @@ class DownloadRequest(BaseModel):
 @app.post("/extract")
 def extract(data: ExtractRequest):
     import yt_dlp
-    with yt_dlp.YoutubeDL({"skip_download": True}) as ydl:
-        info = ydl.extract_info(data.url, download=False)
-    
+    try:
+        with yt_dlp.YoutubeDL({"skip_download": True}) as ydl:
+            info = ydl.extract_info(data.url, download=False)
+    except Exception as e:
+        # Retourne une erreur claire au client Flutter
+        raise HTTPException(status_code=400, detail=f"yt-dlp error: {str(e)}")
+
     entries = info.get("entries", [info])
     result = []
     for e in entries:
@@ -52,4 +56,3 @@ async def websocket_endpoint(ws: WebSocket):
             await ws.receive_text()  # keep connection alive
     except:
         downloader.clients.remove(ws)
-
